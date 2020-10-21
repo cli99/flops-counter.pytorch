@@ -14,11 +14,14 @@ import torch
 import torch.nn as nn
 
 
-def get_model_complexity_info(model, input_res,
+def get_model_complexity_info(model,
+                              input_res,
                               print_per_layer_stat=True,
                               as_strings=True,
-                              input_constructor=None, ost=sys.stdout,
-                              verbose=False, ignore_modules=[],
+                              input_constructor=None,
+                              ost=sys.stdout,
+                              verbose=False,
+                              ignore_modules=[],
                               custom_modules_hooks={}):
     assert type(input_res) is tuple
     assert len(input_res) >= 1
@@ -27,16 +30,18 @@ def get_model_complexity_info(model, input_res,
     CUSTOM_MODULES_MAPPING = custom_modules_hooks
     flops_model = add_flops_counting_methods(model)
     flops_model.eval()
-    flops_model.start_flops_count(ost=ost, verbose=verbose,
+    flops_model.start_flops_count(ost=ost,
+                                  verbose=verbose,
                                   ignore_list=ignore_modules)
     if input_constructor:
         input = input_constructor(input_res)
         _ = flops_model(**input)
     else:
         try:
-            batch = torch.ones(()).new_empty((1, *input_res),
-                                             dtype=next(flops_model.parameters()).dtype,
-                                             device=next(flops_model.parameters()).device)
+            batch = torch.ones(()).new_empty(
+                (1, *input_res),
+                dtype=next(flops_model.parameters()).dtype,
+                device=next(flops_model.parameters()).device)
         except StopIteration:
             batch = torch.ones(()).new_empty((1, *input_res))
 
@@ -54,7 +59,7 @@ def get_model_complexity_info(model, input_res,
     return flops_count, params_count
 
 
-def flops_to_string(flops, units='GMac', precision=2):
+def flops_to_string(flops, units=None, precision=2):
     if units is None:
         if flops // 10**9 > 0:
             return str(round(flops / 10.**9, precision)) + ' GMac'
@@ -77,10 +82,10 @@ def flops_to_string(flops, units='GMac', precision=2):
 
 def params_to_string(params_num, units=None, precision=2):
     if units is None:
-        if params_num // 10 ** 6 > 0:
-            return str(round(params_num / 10 ** 6, 2)) + ' M'
-        elif params_num // 10 ** 3:
-            return str(round(params_num / 10 ** 3, 2)) + ' k'
+        if params_num // 10**6 > 0:
+            return str(round(params_num / 10**6, 2)) + ' M'
+        elif params_num // 10**3:
+            return str(round(params_num / 10**3, 2)) + ' k'
         else:
             return str(params_num)
     else:
@@ -92,9 +97,12 @@ def params_to_string(params_num, units=None, precision=2):
             return str(params_num)
 
 
-def print_model_with_flops(model, total_flops, total_params, units='GMac',
-                           precision=3, ost=sys.stdout):
-
+def print_model_with_flops(model,
+                           total_flops,
+                           total_params,
+                           units=None,
+                           precision=3,
+                           ost=sys.stdout):
     def accumulate_params(self):
         if is_supported_instance(self):
             return self.__params__
@@ -116,13 +124,17 @@ def print_model_with_flops(model, total_flops, total_params, units='GMac',
     def flops_repr(self):
         accumulated_params_num = self.accumulate_params()
         accumulated_flops_cost = self.accumulate_flops()
-        return ', '.join([params_to_string(accumulated_params_num,
-                                           units='M', precision=precision),
-                          '{:.3%} Params'.format(accumulated_params_num / total_params),
-                          flops_to_string(accumulated_flops_cost,
-                                          units=units, precision=precision),
-                          '{:.3%} MACs'.format(accumulated_flops_cost / total_flops),
-                          self.original_extra_repr()])
+        return ', '.join([
+            params_to_string(accumulated_params_num,
+                             units=units,
+                             precision=precision),
+            '{:.3%} Params'.format(accumulated_params_num / total_params),
+            flops_to_string(accumulated_flops_cost,
+                            units=units,
+                            precision=precision),
+            '{:.3%} MACs'.format(accumulated_flops_cost / total_flops),
+            self.original_extra_repr()
+        ])
 
     def add_extra_repr(m):
         m.accumulate_flops = accumulate_flops.__get__(m)
@@ -153,11 +165,14 @@ def get_model_parameters_number(model):
 def add_flops_counting_methods(net_main_module):
     # adding additional methods to the existing module object,
     # this is done this way so that each function has access to self object
-    net_main_module.start_flops_count = start_flops_count.__get__(net_main_module)
-    net_main_module.stop_flops_count = stop_flops_count.__get__(net_main_module)
-    net_main_module.reset_flops_count = reset_flops_count.__get__(net_main_module)
+    net_main_module.start_flops_count = start_flops_count.__get__(
+        net_main_module)
+    net_main_module.stop_flops_count = stop_flops_count.__get__(
+        net_main_module)
+    net_main_module.reset_flops_count = reset_flops_count.__get__(
+        net_main_module)
     net_main_module.compute_average_flops_cost = compute_average_flops_cost.__get__(
-                                                    net_main_module)
+        net_main_module)
 
     net_main_module.reset_flops_count()
 
@@ -206,16 +221,18 @@ def start_flops_count(self, **kwargs):
                 return
             if type(module) in CUSTOM_MODULES_MAPPING:
                 handle = module.register_forward_hook(
-                                        CUSTOM_MODULES_MAPPING[type(module)])
+                    CUSTOM_MODULES_MAPPING[type(module)])
             else:
-                handle = module.register_forward_hook(MODULES_MAPPING[type(module)])
+                handle = module.register_forward_hook(
+                    MODULES_MAPPING[type(module)])
             module.__flops_handle__ = handle
             seen_types.add(type(module))
         else:
             if verbose and not type(module) in (nn.Sequential, nn.ModuleList) and \
                not type(module) in seen_types:
                 print('Warning: module ' + type(module).__name__ +
-                      ' is treated as a zero-op.', file=ost)
+                      ' is treated as a zero-op.',
+                      file=ost)
             seen_types.add(type(module))
 
     self.apply(partial(add_flops_counter_hook_function, **kwargs))
@@ -360,9 +377,9 @@ def batch_counter_hook(module, input, output):
 
 def rnn_flops(flops, rnn_module, w_ih, w_hh, input_size):
     # matrix matrix mult ih state and internal state
-    flops += w_ih.shape[0]*w_ih.shape[1]
+    flops += w_ih.shape[0] * w_ih.shape[1]
     # matrix matrix mult hh state and internal state
-    flops += w_hh.shape[0]*w_hh.shape[1]
+    flops += w_hh.shape[0] * w_hh.shape[1]
     if isinstance(rnn_module, (nn.RNN, nn.RNNCell)):
         # add both operations
         flops += rnn_module.hidden_size
@@ -370,12 +387,12 @@ def rnn_flops(flops, rnn_module, w_ih, w_hh, input_size):
         # hadamard of r
         flops += rnn_module.hidden_size
         # adding operations from both states
-        flops += rnn_module.hidden_size*3
+        flops += rnn_module.hidden_size * 3
         # last two hadamard product and add
-        flops += rnn_module.hidden_size*3
+        flops += rnn_module.hidden_size * 3
     elif isinstance(rnn_module, (nn.LSTM, nn.LSTMCell)):
         # adding operations from both states
-        flops += rnn_module.hidden_size*4
+        flops += rnn_module.hidden_size * 4
         # two hadamard product and add for C state
         flops += rnn_module.hidden_size + rnn_module.hidden_size + rnn_module.hidden_size
         # final hadamard
@@ -509,7 +526,8 @@ MODULES_MAPPING = {
 
 
 def is_supported_instance(module):
-    if type(module) in MODULES_MAPPING or type(module) in CUSTOM_MODULES_MAPPING:
+    if type(module) in MODULES_MAPPING or type(
+            module) in CUSTOM_MODULES_MAPPING:
         return True
     return False
 
